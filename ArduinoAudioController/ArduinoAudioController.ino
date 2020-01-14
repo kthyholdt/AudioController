@@ -1,10 +1,23 @@
-const int LedPin = 3;
-const int SwitchPin = 2;
-const int PotPin1 = A0;
-const int PotPin2 = A1;
+ /* Basic Raw HID Example
+   Teensy can send/receive 64 byte packets with a
+   dedicated program running on a PC or Mac.
+
+   You must select Raw HID from the "Tools > USB Type" menu
+
+   Optional: LEDs should be connected to pins 0-7,
+   and analog signals to the analog inputs.
+
+   This example code is in the public domain.
+*/
+
+const int LedPin = 5;
+const int SwitchPin = 7;
+const int PotPin1 = 0;
+const int PotPin2 = 1;
 const int PotPin3 = A2;
 const int PotPin4 = A3;
 const int PotPin5 = A4;
+const int NoiseValue = 2;
 
 int ledState = 0;
 
@@ -37,102 +50,120 @@ int previousPotVal5;
 
 int previousSwitchState;
 
-void setup() 
-{
-	pinMode(LedPin, OUTPUT);
-	pinMode(SwitchPin, INPUT);
-	Serial.begin(9600);
+// RawHID packets are always 64 bytes
+byte buffer[64];
+elapsedMillis msUntilNextSend;
+unsigned int packetCount = 0;
+
+int valueChanged = 1;
+
+void setup() {
+  Serial.begin(9600);
+  Serial.println(F("RawHID Example"));
+  
+  pinMode(LedPin, OUTPUT);
+  pinMode(SwitchPin, INPUT);
 }
 
-void loop() 
-{
-	char receiveVal;
-	switchState = digitalRead(SwitchPin);
+int light = 0;
 
-	if (switchState == HIGH && previousSwitchState != switchState)
-	{
-		Serial.println("M");
-	}
-	previousSwitchState = switchState;
+void loop() {
+  int n;
+  
+  n = RawHID.recv(buffer, 100); // 0 timeout = do not wait
+  if (n > 0) {
+    light = (int)buffer[0];
+  }
+    
+  digitalWrite(LedPin, light);
 
-	potVal1 = analogRead(PotPin1);
-	value1 = map(potVal1, 0, 1023, 0, 100);
+  // first 2 bytes are a signature
+  buffer[0] = 0xAB;
+  buffer[1] = 0xCD;
+  buffer[2] = 0;
 
-	if (oldValue1 != value1 && abs(previousPotVal1 - potVal1) > 1)
-	{
-		oldValue1 = value1;
-		previousPotVal1 = potVal1;
-		Serial.print("P1:");
-		Serial.println(value1);
-	}
+  switchState = digitalRead(SwitchPin);
 
-	potVal2 = analogRead(PotPin2);
-	value2 = map(potVal2, 0, 1023, 0, 100);
+  if (switchState == HIGH && previousSwitchState != switchState)
+  {
+    buffer[2] = 1;
+    valueChanged = 1;
+  }
+  
+  previousSwitchState = switchState;
 
-	if (oldValue2 != value2 && abs(previousPotVal2 - potVal2) > 1)
-	{
-		oldValue2 = value2;
-		previousPotVal2 = potVal2;
-		Serial.print("P2:");
-		Serial.println(value2);
-	}
+  potVal1 = analogRead(PotPin1);
+  value1 = map(potVal1, 0, 1023, 0, 100);
 
-	potVal3 = analogRead(PotPin3);
-	value3 = map(potVal3, 0, 1023, 0, 100);
+  if (oldValue1 != value1 && abs(previousPotVal1 - potVal1) > NoiseValue)
+  {
+    oldValue1 = value1;
+    previousPotVal1 = potVal1;
+    valueChanged = 1;
+  }
+  
+  buffer[3] = (byte)oldValue1;
 
-	if (oldValue3 != value3 && abs(previousPotVal3 - potVal3) > 1)
-	{
-		oldValue3 = value3;
-		previousPotVal3 = potVal3;
-		Serial.print("P3:");
-		Serial.println(value3);
-	}
+  potVal2 = analogRead(PotPin2);
+  value2 = map(potVal2, 0, 1023, 0, 100);
 
-	potVal4 = analogRead(PotPin4);
-	value4 = map(potVal4, 0, 1023, 0, 100);
+  if (oldValue2 != value2 && abs(previousPotVal2 - potVal2) > NoiseValue)
+  {
+    oldValue2 = value2;
+    previousPotVal2 = potVal2;
+    valueChanged = 1;
+  }
 
-	if (oldValue4 != value4 && abs(previousPotVal4 - potVal4) > 1)
-	{
-		oldValue4 = value4;
-		previousPotVal4 = potVal4;
-		Serial.print("P4:");
-		Serial.println(value4);
-	}
+  buffer[4] = (byte)oldValue2;
 
-	potVal5 = analogRead(PotPin5);
-	value5 = map(potVal5, 0, 1023, 0, 100);
+  potVal3 = analogRead(PotPin3);
+  value3 = map(potVal3, 0, 1023, 0, 100);
 
-	if (oldValue5 != value5 && abs(previousPotVal5 - potVal5) > 1)
-	{
-		oldValue5 = value5;
-		previousPotVal5 = potVal5;
-		Serial.print("P5:");
-		Serial.println(value5);
-	}
+  if (oldValue3 != value3 && abs(previousPotVal3 - potVal3) > NoiseValue)
+  {
+    oldValue3 = value3;
+    previousPotVal3 = potVal3;
+    valueChanged = 1;
+  }
+  
+  buffer[5] = (byte)oldValue3;
 
-	if (Serial.available() > 0)
-	{
-		receiveVal = Serial.read();
+  potVal4 = analogRead(PotPin4);
+  value4 = map(potVal4, 0, 1023, 0, 100);
 
-		if (receiveVal == 'G')
-		{
-			Serial.print("P1:");
-			Serial.println(value1);
-			Serial.print("P2:");
-			Serial.println(value2);
-			Serial.print("P3:");
-			Serial.println(value3);
-			Serial.print("P4:");
-			Serial.println(value4);
-			Serial.print("P5:");
-			Serial.println(value5);
-		}
+  if (oldValue4 != value4 && abs(previousPotVal4 - potVal4) > NoiseValue)
+  {
+    oldValue4 = value4;
+    previousPotVal4 = potVal4;
+    valueChanged = 1;
+  }
+  buffer[6] = (byte)oldValue4;
 
-		if (receiveVal == '1')
-			ledState = 1;
-		else  if (receiveVal == '0')
-			ledState = 0;
-	}
+  potVal5 = analogRead(PotPin5);
+  value5 = map(potVal5, 0, 1023, 0, 100);
 
-	digitalWrite(LedPin, ledState);
+  if (oldValue5 != value5 && abs(previousPotVal5 - potVal5) > NoiseValue)
+  {
+    oldValue5 = value5;
+    previousPotVal5 = potVal5;
+    valueChanged = 1;
+  }
+  buffer[7] = (byte)oldValue5;
+
+  // and put a count of packets sent at the end
+  buffer[62] = highByte(packetCount);
+  buffer[63] = lowByte(packetCount);
+
+  if(valueChanged == 1)
+  {
+    n = RawHID.send(buffer, 100);
+    if (n > 0) {
+      packetCount = packetCount + 1;
+    } else {
+      Serial.println(F("Unable to transmit packet"));
+    }
+  }
+  
+  valueChanged = 0;
+
 }

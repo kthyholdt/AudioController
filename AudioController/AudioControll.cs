@@ -1,29 +1,24 @@
-﻿namespace AudioController
+﻿using System;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Windows;
+using NAudio.CoreAudioApi;
+using NAudio.CoreAudioApi.Interfaces;
+using Serilog;
+
+namespace AudioController
 {
-    using System;
-    using System.ComponentModel;
-    using System.Diagnostics;
-    using System.IO.Ports;
-    using System.Runtime.CompilerServices;
-    using System.Text;
-    using System.Threading;
-    using System.Windows;
-    using NAudio.CoreAudioApi;
-    using NAudio.CoreAudioApi.Interfaces;
-
-    using Serilog;
-
-    public class AudioControl : INotifyPropertyChanged
+    public class AudioControl : INotifyPropertyChanged, IVolumeController
     {
-        private StringBuilder buffer = new StringBuilder();
-
-        private char LF = (char)10;
-
         private double mainVolume;
 
         private double masterPeakValue;
 
-        private SerialPort port;
+        double deltaVolume = 0.01;
+
+        private HidComunication device;
 
         public AudioControl()
         {
@@ -37,39 +32,21 @@
             this.AudioSessionManager = this.DefaultAudioEndpoint.AudioSessionManager;
             this.MainVolume = this.DefaultAudioEndpoint.AudioEndpointVolume.MasterVolumeLevelScalar;
             this.AudioSessionManager.OnSessionCreated += this.OnAudioSessionCreated;
+            this.SetDefaultRecordingEndpoint();
 
             this.CreateGroups();
 
-            if (this.port == null)
-            {
-                try
-                {
-                    this.port = new SerialPort("COM4", 9600);
-                    this.port.Open();
-                    this.port.DataReceived += this.port_DataReceived;
-                    this.port.Write("G");
-                }
-                catch (Exception e)
-                {
-                    MessageBox.Show(e.Message);
-                    //throw;
-                }
-            }
+            device = new HidComunication(this);
 
-            if (port != null && this.port.IsOpen)
-            {
-                new Thread(
-                    () =>
-                    {
-                        Thread.CurrentThread.IsBackground = true;
+            //new Thread(
+            //        () =>
+            //        {
+            //            Thread.CurrentThread.IsBackground = true;
 
-                        /* run your code here */
-                        this.DefaultRecordingAudioEndpoint = this.DeviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Multimedia);
-                        this.SerialLoop();
-                    }).Start();
-            }
-
-            Application.Current.Exit += this.CurrentOnExit;
+            //            /* run your code here */
+            //            this.DefaultRecordingAudioEndpoint = this.DeviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Multimedia);
+            //            device.TryReadRaw();
+            //        }).Start();
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -84,13 +61,32 @@
 
         public AudioSessionGroup GamesAudioSessionGroup { get; set; }
 
+        public void SetDefaultRecordingEndpoint()
+        {
+            this.DefaultRecordingAudioEndpoint = this.DeviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Multimedia);
+        }
+
         public float GamesVolume
         {
             get => this.GamesAudioSessionGroup.Volume;
             set
             {
-                this.GamesAudioSessionGroup.Volume = value;
-                Application.Current.Dispatcher.Invoke(() => this.OnPropertyChanged());
+                if (Math.Abs(value - this.GamesAudioSessionGroup.Volume) >= 0.02)
+                {
+                    var volume = value;
+                    if (volume < 0)
+                    {
+                        volume = 0;
+                    }
+
+                    if (volume > 1)
+                    {
+                        volume = 1;
+                    }
+
+                    this.GamesAudioSessionGroup.Volume = volume;
+                    Application.Current.Dispatcher.Invoke(() => this.OnPropertyChanged());
+                }
             }
         }
 
@@ -99,19 +95,22 @@
             get => this.mainVolume;
             set
             {
-                var volume = value;
-                if (volume < 0)
+                if(Math.Abs(value - this.mainVolume) >= deltaVolume)
                 {
-                    volume = 0;
-                }
+                    var volume = value;
+                    if (volume < 0)
+                    {
+                        volume = 0;
+                    }
 
-                if (volume > 1)
-                {
-                    volume = 1;
+                    if (volume > 1)
+                    {
+                        volume = 1;
+                    }
+                    this.mainVolume = volume;
+                    this.DefaultAudioEndpoint.AudioEndpointVolume.MasterVolumeLevelScalar = (float)volume;
+                    Application.Current.Dispatcher.Invoke(() => this.OnPropertyChanged());
                 }
-                this.mainVolume = volume;
-                this.DefaultAudioEndpoint.AudioEndpointVolume.MasterVolumeLevelScalar = (float)volume;
-                Application.Current.Dispatcher.Invoke(() => this.OnPropertyChanged());
             }
         }
 
@@ -120,19 +119,22 @@
             get => this.masterPeakValue;
             set
             {
-                var volume = value;
-                if (volume < 0)
+                if (Math.Abs(value - this.masterPeakValue) >= deltaVolume)
                 {
-                    volume = 0;
-                }
+                    var volume = value;
+                    if (volume < 0)
+                    {
+                        volume = 0;
+                    }
 
-                if (volume > 1)
-                {
-                    volume = 1;
-                }
+                    if (volume > 1)
+                    {
+                        volume = 1;
+                    }
 
-                this.masterPeakValue = volume;
-                Application.Current?.Dispatcher?.Invoke(this.UpdateValues);
+                    this.masterPeakValue = volume;
+                    Application.Current?.Dispatcher?.Invoke(this.UpdateValues);
+                }
             }
         }
 
@@ -143,19 +145,22 @@
             get => this.MediaAudioSessionGroup.Volume;
             set
             {
-                var volume = value;
-                if (volume < 0)
+                if (Math.Abs(value - this.MediaAudioSessionGroup.Volume) >= deltaVolume)
                 {
-                    volume = 0;
-                }
+                    var volume = value;
+                    if (volume < 0)
+                    {
+                        volume = 0;
+                    }
 
-                if (volume > 1)
-                {
-                    volume = 1;
-                }
+                    if (volume > 1)
+                    {
+                        volume = 1;
+                    }
 
-                this.MediaAudioSessionGroup.Volume = volume;
-                Application.Current.Dispatcher.Invoke(() => this.OnPropertyChanged());
+                    this.MediaAudioSessionGroup.Volume = volume;
+                    Application.Current.Dispatcher.Invoke(() => this.OnPropertyChanged());
+                }
             }
         }
 
@@ -166,42 +171,50 @@
             get => this.BrowserAudioSessionGroup.Volume;
             set
             {
-                var volume = value;
-                if (volume < 0)
+                if (Math.Abs(value - this.BrowserAudioSessionGroup.Volume) >= deltaVolume)
                 {
-                    volume = 0;
-                }
+                    var volume = value;
+                    if (volume < 0)
+                    {
+                        volume = 0;
+                    }
 
-                if (volume > 1)
-                {
-                    volume = 1;
-                }
+                    if (volume > 1)
+                    {
+                        volume = 1;
+                    }
 
-                this.BrowserAudioSessionGroup.Volume = volume;
-                Application.Current.Dispatcher.Invoke(() => this.OnPropertyChanged());
+                    this.BrowserAudioSessionGroup.Volume = volume;
+                    Application.Current.Dispatcher.Invoke(() => this.OnPropertyChanged());
+                }
             }
         }
 
         public AudioSessionGroup VoiceAudioSessionGroup { get; set; }
+
+        public bool IsMicrophoneMuted => this.DefaultRecordingAudioEndpoint.AudioEndpointVolume.Mute;
 
         public float VoiceVolume
         {
             get => this.VoiceAudioSessionGroup.Volume;
             set
             {
-                var volume = value;
-                if (volume < 0)
+                if (Math.Abs(value - this.VoiceAudioSessionGroup.Volume) >= deltaVolume)
                 {
-                    volume = 0;
-                }
+                    var volume = value;
+                    if (volume < 0)
+                    {
+                        volume = 0;
+                    }
 
-                if (volume > 1)
-                {
-                    volume = 1;
-                }
+                    if (volume > 1)
+                    {
+                        volume = 1;
+                    }
 
-                this.VoiceAudioSessionGroup.Volume = volume;
-                Application.Current.Dispatcher.Invoke(() => this.OnPropertyChanged());
+                    this.VoiceAudioSessionGroup.Volume = volume;
+                    Application.Current.Dispatcher.Invoke(() => this.OnPropertyChanged());
+                }
             }
         }
 
@@ -247,6 +260,11 @@
             }
         }
 
+        public void ChangeMicrophoneMuteState()
+        {
+            this.DefaultRecordingAudioEndpoint.AudioEndpointVolume.Mute = !this.DefaultRecordingAudioEndpoint.AudioEndpointVolume.Mute;
+        }
+
         private void CreateGroups()
         {
             this.DefaultAudioEndpoint.AudioSessionManager.RefreshSessions();
@@ -262,124 +280,9 @@
             }
         }
 
-        private void CurrentOnExit(object sender, ExitEventArgs e)
-        {
-            if ((this.port != null) && this.port.IsOpen)
-            {
-                this.port.Close();
-            }
-        }
-
-        private void EvalLine(string line)
-        {
-            try
-            {
-                if (line.StartsWith("P1"))
-                {
-                    var vol = line.Split(':')[1];
-                    if (double.TryParse(vol, out var volume))
-                    {
-                        this.MainVolume = (float)(volume / 100);
-                    }
-                }
-
-                if (line.StartsWith("P2"))
-                {
-                    var vol = line.Split(':')[1];
-                    if (double.TryParse(vol, out var volume))
-                    {
-                        this.MediaVolume = (float)(volume / 100);
-                    }
-                }
-
-                if (line.StartsWith("P3"))
-                {
-                    var vol = line.Split(':')[1];
-                    if (double.TryParse(vol, out var volume))
-                    {
-                        this.BrowserVolume = (float)(volume / 100);
-                    }
-                }
-
-                if (line.StartsWith("P4"))
-                {
-                    var vol = line.Split(':')[1];
-                    if (double.TryParse(vol, out var volume))
-                    {
-                        this.VoiceVolume = (float)(volume / 100);
-                    }
-                }
-
-                if (line.StartsWith("P5"))
-                {
-                    var vol = line.Split(':')[1];
-                    if (double.TryParse(vol, out var volume))
-                    {
-                        this.GamesVolume = (float)(volume / 100);
-                    }
-                }
-
-                if (line.StartsWith("M"))
-                {
-                    this.DefaultRecordingAudioEndpoint.AudioEndpointVolume.Mute = !this.DefaultRecordingAudioEndpoint.AudioEndpointVolume.Mute;
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, ex.Message);
-            }
-        }
-
         private void OnAudioSessionCreated(object sender, IAudioSessionControl newsession)
         {
             this.CreateGroups();
-        }
-
-        private void port_DataReceived(object sender, SerialDataReceivedEventArgs e)
-        {
-            var data = this.port.ReadExisting();
-
-            foreach (char c in data)
-            {
-                if (c == this.LF)
-                {
-                    this.buffer.Append(c);
-
-                    var currentLine = this.buffer.ToString();
-                    this.buffer.Clear();
-
-                    this.EvalLine(currentLine);
-                }
-                else
-                {
-                    this.buffer.Append(c);
-                }
-            }
-        }
-
-        private void PortWrite(string message)
-        {
-            this.port.Write(message);
-        }
-
-        private void SerialLoop()
-        {
-            while (true)
-            {
-                if ((this.port != null) && this.port.IsOpen)
-                {
-                    if (this.DefaultRecordingAudioEndpoint.AudioEndpointVolume.Mute)
-                    {
-                        this.PortWrite("1");
-                    }
-                    else
-                    {
-                        this.PortWrite("0");
-                    }
-                }
-
-                Thread.SpinWait(50);
-            }
         }
 
         private void UpdateValues()
