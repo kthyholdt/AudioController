@@ -18,7 +18,6 @@ namespace AudioController
             var currentDomain = AppDomain.CurrentDomain;
             currentDomain.UnhandledException += LogExceptionHandler;
 
-
             this.notifyIcon = new System.Windows.Forms.NotifyIcon();
             this.notifyIcon.DoubleClick += (s, args) => this.ShowMainWindow();
             this.notifyIcon.Icon = Properties.Resources.Icon;
@@ -26,7 +25,6 @@ namespace AudioController
             this.Closing += MainWindow_Closing;
 
             this.CreateContextMenu();
-
         }
 
         private void LogExceptionHandler(object sender, UnhandledExceptionEventArgs args)
@@ -73,6 +71,18 @@ namespace AudioController
             {
                 e.Cancel = true;
                 this.Hide(); // A hidden window can be shown again, a closed one not
+            }
+        }
+
+        private void Button_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            if(this.DataContext is AudioControl audioControl)
+            {
+                audioControl.Device.RunReader = !audioControl.Device.RunReader;
+                if(audioControl.Device.RunReader)
+                {
+                    audioControl.Device.StartReader();
+                }
             }
         }
     }

@@ -17,6 +17,7 @@
         bool IsMicrophoneMuted { get; }
 
         void ChangeMicrophoneMuteState();
+
         void SetDefaultRecordingEndpoint();
     }
 }

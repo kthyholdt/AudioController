@@ -2,7 +2,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Threading;
+using System.Timers;
 using System.Windows;
 using NAudio.CoreAudioApi;
 using NAudio.CoreAudioApi.Interfaces;
@@ -12,16 +12,18 @@ namespace AudioController
 {
     public class AudioControl : INotifyPropertyChanged, IVolumeController
     {
-        private double mainVolume;
+        private const double DeltaVolume = 1;
 
+        private double mainVolume;
         private double masterPeakValue;
 
-        double deltaVolume = 0.01;
-
-        private HidComunication device;
+        private bool _isPopupOpen;
+        private string _currentControl;
+        private double _currentVolume;
 
         public AudioControl()
         {
+            Application.Current.Exit += this.OnExit; 
             this.MediaAudioSessionGroup = new AudioSessionGroup();
             this.BrowserAudioSessionGroup = new AudioSessionGroup();
             this.VoiceAudioSessionGroup = new AudioSessionGroup();
@@ -35,19 +37,22 @@ namespace AudioController
             this.SetDefaultRecordingEndpoint();
 
             this.CreateGroups();
+            this.MainVolume = Properties.Settings.Default.Volume1;
+            this.MediaVolume = Properties.Settings.Default.Volume2;
+            this.BrowserVolume = Properties.Settings.Default.Volume3;
+            this.VoiceVolume = Properties.Settings.Default.Volume4;
+            this.GamesVolume = Properties.Settings.Default.Volume5;
 
-            device = new HidComunication(this);
+            this.Device = new HidComunication(this);
+            this.PropertyChanged += AudioControl_PropertyChanged;
 
-            //new Thread(
-            //        () =>
-            //        {
-            //            Thread.CurrentThread.IsBackground = true;
-
-            //            /* run your code here */
-            //            this.DefaultRecordingAudioEndpoint = this.DeviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Multimedia);
-            //            device.TryReadRaw();
-            //        }).Start();
+            timer = new Timer();
+            timer.Interval = 2000;
+            timer.AutoReset = false;
+            timer.Elapsed += Timer_Elapsed;
         }
+
+        public HidComunication Device { get; set; }
 
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -66,26 +71,104 @@ namespace AudioController
             this.DefaultRecordingAudioEndpoint = this.DeviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Multimedia);
         }
 
+        private Timer timer;
+
+        private void Timer_Elapsed(object sender, ElapsedEventArgs e)
+        {
+            Application.Current.Dispatcher.Invoke(
+            () =>
+            {
+                this.IsPopupVisible = false;
+                Debug.WriteLine($"{DateTime.Now} Hide.");
+            }
+            );
+        }
+
+        private void AudioControl_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(this.GamesVolume))
+            {
+                this.IsPopupVisible = true;
+                this.CurrentControl = "Games";
+                this.CurrentVolume = this.GamesVolume;
+
+                timer.Stop();
+                timer.Start();
+            }
+            else if (e.PropertyName == nameof(this.MediaVolume))
+            {
+                this.IsPopupVisible = true;
+                this.CurrentControl = "Media";
+                this.CurrentVolume = this.MediaVolume;
+
+                timer.Stop();
+                timer.Start();
+            }
+            else if (e.PropertyName == nameof(this.BrowserVolume))
+            {
+                this.IsPopupVisible = true;
+                this.CurrentControl = "Browser";
+                this.CurrentVolume = this.BrowserVolume;
+
+                timer.Stop();
+                timer.Start();
+            }
+            else if (e.PropertyName == nameof(this.VoiceVolume))
+            {
+                this.IsPopupVisible = true;
+                this.CurrentControl = "Voice";
+                this.CurrentVolume = this.VoiceVolume;
+
+                timer.Stop();
+                timer.Start();
+            }
+        }
+
+        public bool IsPopupVisible
+        {
+            get { return _isPopupOpen; }
+            set 
+            { 
+                _isPopupOpen = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public string CurrentControl
+        {
+            get { return _currentControl; }
+            set 
+            { 
+                _currentControl = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public double CurrentVolume
+        {
+            get { return _currentVolume; }
+            set 
+            { 
+                _currentVolume = value;
+                OnPropertyChanged();
+            }
+        }
+
         public float GamesVolume
         {
             get => this.GamesAudioSessionGroup.Volume;
             set
             {
-                if (Math.Abs(value - this.GamesAudioSessionGroup.Volume) >= 0.02)
+                if (Math.Abs(value - this.GamesAudioSessionGroup.Volume) > DeltaVolume)
                 {
-                    var volume = value;
-                    if (volume < 0)
-                    {
-                        volume = 0;
-                    }
-
-                    if (volume > 1)
-                    {
-                        volume = 1;
-                    }
-
-                    this.GamesAudioSessionGroup.Volume = volume;
-                    Application.Current.Dispatcher.Invoke(() => this.OnPropertyChanged());
+                    this.GamesAudioSessionGroup.Volume = value;
+                    Log.Debug($"Games Volume changed to {value}.");
+                    Application.Current.Dispatcher.Invoke(
+                        () =>
+                            {
+                                this.OnPropertyChanged();
+                            }
+                        );
                 }
             }
         }
@@ -95,7 +178,7 @@ namespace AudioController
             get => this.mainVolume;
             set
             {
-                if(Math.Abs(value - this.mainVolume) >= deltaVolume)
+                if(Math.Abs(value - this.mainVolume) > 0)
                 {
                     var volume = value;
                     if (volume < 0)
@@ -109,6 +192,7 @@ namespace AudioController
                     }
                     this.mainVolume = volume;
                     this.DefaultAudioEndpoint.AudioEndpointVolume.MasterVolumeLevelScalar = (float)volume;
+                    Log.Debug($"Main Volume changed to {value}.");
                     Application.Current.Dispatcher.Invoke(() => this.OnPropertyChanged());
                 }
             }
@@ -119,7 +203,7 @@ namespace AudioController
             get => this.masterPeakValue;
             set
             {
-                if (Math.Abs(value - this.masterPeakValue) >= deltaVolume)
+                if (Math.Abs(value - this.masterPeakValue) > 0)
                 {
                     var volume = value;
                     if (volume < 0)
@@ -145,20 +229,10 @@ namespace AudioController
             get => this.MediaAudioSessionGroup.Volume;
             set
             {
-                if (Math.Abs(value - this.MediaAudioSessionGroup.Volume) >= deltaVolume)
+                if (Math.Abs(value - this.MediaAudioSessionGroup.Volume) > DeltaVolume)
                 {
-                    var volume = value;
-                    if (volume < 0)
-                    {
-                        volume = 0;
-                    }
-
-                    if (volume > 1)
-                    {
-                        volume = 1;
-                    }
-
-                    this.MediaAudioSessionGroup.Volume = volume;
+                    this.MediaAudioSessionGroup.Volume = value;
+                    Log.Debug($"Media Volume changed to {value}.");
                     Application.Current.Dispatcher.Invoke(() => this.OnPropertyChanged());
                 }
             }
@@ -171,20 +245,10 @@ namespace AudioController
             get => this.BrowserAudioSessionGroup.Volume;
             set
             {
-                if (Math.Abs(value - this.BrowserAudioSessionGroup.Volume) >= deltaVolume)
+                if (Math.Abs(value - this.BrowserAudioSessionGroup.Volume) > DeltaVolume)
                 {
-                    var volume = value;
-                    if (volume < 0)
-                    {
-                        volume = 0;
-                    }
-
-                    if (volume > 1)
-                    {
-                        volume = 1;
-                    }
-
-                    this.BrowserAudioSessionGroup.Volume = volume;
+                    this.BrowserAudioSessionGroup.Volume = value;
+                    Log.Debug($"Browser Volume changed to {value}.");
                     Application.Current.Dispatcher.Invoke(() => this.OnPropertyChanged());
                 }
             }
@@ -199,20 +263,10 @@ namespace AudioController
             get => this.VoiceAudioSessionGroup.Volume;
             set
             {
-                if (Math.Abs(value - this.VoiceAudioSessionGroup.Volume) >= deltaVolume)
+                if (Math.Abs(value - VoiceAudioSessionGroup.Volume) > DeltaVolume)
                 {
-                    var volume = value;
-                    if (volume < 0)
-                    {
-                        volume = 0;
-                    }
-
-                    if (volume > 1)
-                    {
-                        volume = 1;
-                    }
-
-                    this.VoiceAudioSessionGroup.Volume = volume;
+                    this.VoiceAudioSessionGroup.Volume = value;
+                    Log.Debug($"Voice Volume changed to {value}.");
                     Application.Current.Dispatcher.Invoke(() => this.OnPropertyChanged());
                 }
             }
@@ -250,7 +304,9 @@ namespace AudioController
             }
             else if (name.Equals("skype", StringComparison.CurrentCultureIgnoreCase)
                      || name.Equals("ts3client_win64", StringComparison.CurrentCultureIgnoreCase)
-                     || name.Equals("lync", StringComparison.CurrentCultureIgnoreCase))
+                     || name.Equals("lync", StringComparison.CurrentCultureIgnoreCase)
+                     || name.Equals("discord", StringComparison.CurrentCultureIgnoreCase)
+                     || name.Equals("teams", StringComparison.CurrentCultureIgnoreCase))
             {
                 this.VoiceAudioSessionGroup.AddAudioSessionControl(audioSessionControl);
             }
@@ -288,6 +344,17 @@ namespace AudioController
         private void UpdateValues()
         {
             this.OnPropertyChanged(nameof(this.MasterPeakValue));
+        }
+
+        private void OnExit(object sender, ExitEventArgs e)
+        {
+            Properties.Settings.Default.Volume1 = this.MainVolume;
+            Properties.Settings.Default.Volume2 = this.MediaVolume;
+            Properties.Settings.Default.Volume3 = this.BrowserVolume;
+            Properties.Settings.Default.Volume4 = this.VoiceVolume;
+            Properties.Settings.Default.Volume5 = this.GamesVolume;
+
+            Properties.Settings.Default.Save();
         }
     }
 }

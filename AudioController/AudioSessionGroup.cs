@@ -25,9 +25,19 @@ namespace AudioController
             {
                 this.volume = value;
 
+                if (this.volume < 0)
+                {
+                    this.volume = 0;
+                }
+
+                if (this.volume > 100)
+                {
+                    this.volume = 100;
+                }
+
                 foreach (var audioSessionControl in this.AudioSessionControls.ToList())
                 {
-                    audioSessionControl.SimpleAudioVolume.Volume = this.CalcVolume(this.volume);
+                    audioSessionControl.SimpleAudioVolume.Volume = this.CalcVolume();
                 }
             }
         }
@@ -53,7 +63,7 @@ namespace AudioController
 
         public void AddAudioSessionControl(AudioSessionControl audioSessionControl)
         {
-            audioSessionControl.SimpleAudioVolume.Volume = this.CalcVolume(this.volume);
+            audioSessionControl.SimpleAudioVolume.Volume = this.CalcVolume();
             audioSessionControl.SimpleAudioVolume.Mute = this.mute;
             this.AudioSessionControls.Add(audioSessionControl);
         }
@@ -63,9 +73,9 @@ namespace AudioController
             this.AudioSessionControls.Clear();
         }
 
-        private float CalcVolume(float value)
+        private float CalcVolume()
         {
-            return (float)Math.Pow(this.volume, 3);
+            return (float)Math.Pow(this.volume / 100, 3);
         }
     }
 }
