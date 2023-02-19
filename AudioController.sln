@@ -1,11 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.28729.10
+# Visual Studio Version 17
+VisualStudioVersion = 17.4.33103.184
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AudioController", "AudioController\AudioController.csproj", "{0C6DF027-511F-4794-8A5F-57BCA974BF5A}"
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ArduinoAudioController", "ArduinoAudioController\ArduinoAudioController.vcxproj", "{C5F80730-F44F-4478-BDAE-6634EFC2CA88}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AudioController", "AudioController\AudioController.csproj", "{D5E186B1-CA32-4150-BB4E-DB69B7521BEB}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,20 +15,20 @@ Global
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{0C6DF027-511F-4794-8A5F-57BCA974BF5A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{0C6DF027-511F-4794-8A5F-57BCA974BF5A}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{0C6DF027-511F-4794-8A5F-57BCA974BF5A}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{0C6DF027-511F-4794-8A5F-57BCA974BF5A}.Debug|x86.Build.0 = Debug|Any CPU
-		{0C6DF027-511F-4794-8A5F-57BCA974BF5A}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{0C6DF027-511F-4794-8A5F-57BCA974BF5A}.Release|Any CPU.Build.0 = Release|Any CPU
-		{0C6DF027-511F-4794-8A5F-57BCA974BF5A}.Release|x86.ActiveCfg = Release|Any CPU
-		{0C6DF027-511F-4794-8A5F-57BCA974BF5A}.Release|x86.Build.0 = Release|Any CPU
 		{C5F80730-F44F-4478-BDAE-6634EFC2CA88}.Debug|Any CPU.ActiveCfg = Debug|Win32
 		{C5F80730-F44F-4478-BDAE-6634EFC2CA88}.Debug|x86.ActiveCfg = Debug|Win32
 		{C5F80730-F44F-4478-BDAE-6634EFC2CA88}.Debug|x86.Build.0 = Debug|Win32
 		{C5F80730-F44F-4478-BDAE-6634EFC2CA88}.Release|Any CPU.ActiveCfg = Release|Win32
 		{C5F80730-F44F-4478-BDAE-6634EFC2CA88}.Release|x86.ActiveCfg = Release|Win32
 		{C5F80730-F44F-4478-BDAE-6634EFC2CA88}.Release|x86.Build.0 = Release|Win32
+		{D5E186B1-CA32-4150-BB4E-DB69B7521BEB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D5E186B1-CA32-4150-BB4E-DB69B7521BEB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D5E186B1-CA32-4150-BB4E-DB69B7521BEB}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{D5E186B1-CA32-4150-BB4E-DB69B7521BEB}.Debug|x86.Build.0 = Debug|Any CPU
+		{D5E186B1-CA32-4150-BB4E-DB69B7521BEB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D5E186B1-CA32-4150-BB4E-DB69B7521BEB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D5E186B1-CA32-4150-BB4E-DB69B7521BEB}.Release|x86.ActiveCfg = Release|Any CPU
+		{D5E186B1-CA32-4150-BB4E-DB69B7521BEB}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
